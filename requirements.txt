@@ -1,6 +1,5 @@
 pytubefix
 moviepy
 streamlit
-io
 tempfile
 urllib
