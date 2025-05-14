@@ -6,7 +6,7 @@
 import streamlit as st
 from pytubefix import YouTube # For interacting with YouTube and downloading videos/audio
 from urllib.parse import urlparse, parse_qs # For cleaning and parsing YouTube URLs
-from moviepy.editor import AudioFileClip # For converting audio files to MP3 format
+from moviepy import AudioFileClip # For converting audio files to MP3 format
 import tempfile # For creating temporary files to store downloads before serving
 import os # For operating system dependent functionalities like file removal
 import io # For handling in-memory text streams (used for captions)
