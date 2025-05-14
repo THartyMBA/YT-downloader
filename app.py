@@ -72,8 +72,17 @@ def download_video_stream(yt, progress_bar):
     mp4_bytes = None
     try:
         st.info(f"Attempting to download to temporary file: {file_path}")
-        video_stream.download(filename=file_path) # Download the video to the temporary file
+        # --- MODIFICATION START ---
+        # Instead of downloading directly to file, stream to an in-memory buffer first
+        st.info("Streaming video to in-memory buffer...")
+        buffer = io.BytesIO()
+        video_stream.stream_to_buffer(buffer)
+        buffer.seek(0) # Reset buffer position to the beginning for reading
 
+        st.info(f"Buffer size after streaming: {len(buffer.getvalue())} bytes. Writing buffer to temporary file: {file_path}")
+        with open(file_path, "wb") as f_out:
+            f_out.write(buffer.getvalue())
+        # --- MODIFICATION END ---
         if not os.path.exists(file_path):
             st.error(f"Temporary file {file_path} was not created after download attempt.")
             return None, None, None
