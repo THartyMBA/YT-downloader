@@ -227,3 +227,12 @@ if url and start_download:
         progress_bar.empty() # Clear the progress bar after completion or error
     except Exception as e: # Catch any other exceptions during the process
         st.error(f"An error occurred: {e}") # Display a generic error message
+
+# --- Disclaimer ---
+# Display a disclaimer at the bottom of the app
+st.markdown("---") # Adds a horizontal rule for separation
+st.markdown(
+    "**Disclaimer:** Please ensure you comply with YouTube's Terms of Service and respect copyright laws when using this tool. "
+    "This downloader is intended for personal, fair use only. Downloading copyrighted material without permission is illegal in many countries. "
+    "Use this tool responsibly and at your own risk."
+)

@@ -88,3 +88,9 @@ streamlit run "c:\directory file location"
 *   `func.py`: The Tkinter GUI application script.
 *   `app.py`: The Streamlit web application script.
 *   `README.md`: This file.
+  
+## Disclaimer
+
+**Please ensure you comply with YouTube's Terms of Service and respect copyright laws when using this tool. This downloader is intended for personal, fair use only. Downloading copyrighted material without permission is illegal in many countries. Use this tool responsibly and at your own risk.**
+
+---
