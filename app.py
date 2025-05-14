@@ -6,7 +6,7 @@
 import streamlit as st
 from pytubefix import YouTube # For interacting with YouTube and downloading videos/audio
 from urllib.parse import urlparse, parse_qs # For cleaning and parsing YouTube URLs
-from moviepy import AudioFileClip # For converting audio files to MP3 format
+from moviepy.editor import AudioFileClip # For converting audio files to MP3 format
 import tempfile # For creating temporary files to store downloads before serving
 import os # For operating system dependent functionalities like file removal
 import io # For handling in-memory text streams (used for captions)
@@ -49,6 +49,7 @@ def download_video_stream(yt, progress_bar):
     video_stream = yt.streams.get_highest_resolution()
     if video_stream is None:
         return None, None, None # Return None if no suitable stream is found
+    st.info(f"Selected video stream: {video_stream.itag} ({video_stream.resolution}, {video_stream.fps}fps)")
 
     # Create a temporary file to download the video to
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_file:
@@ -56,22 +57,59 @@ def download_video_stream(yt, progress_bar):
     bytes_streamed = 0
     total_size = video_stream.filesize
 
+    st.info(f"Pytubefix reports video filesize: {total_size} bytes.") # Log expected size
+
     def on_progress(stream, chunk, bytes_remaining):
         nonlocal bytes_streamed
-        bytes_streamed = total_size - bytes_remaining # Calculate bytes downloaded
-        progress = bytes_streamed / total_size # Calculate download progress percentage
+        # Calculate total bytes downloaded so far more directly
+        current_bytes_downloaded = total_size - bytes_remaining
+        progress = current_bytes_downloaded / total_size if total_size > 0 else 0
+        # Update bytes_streamed for consistency if it were used elsewhere, but current_bytes_downloaded is more direct
+        bytes_streamed = current_bytes_downloaded
         progress_bar.progress(min(progress, 1.0)) # Update Streamlit progress bar (cap at 1.0)
 
     yt.register_on_progress_callback(on_progress) # Register the progress callback
-    video_stream.download(filename=file_path) # Download the video to the temporary file
+    mp4_bytes = None
+    try:
+        st.info(f"Attempting to download to temporary file: {file_path}")
+        video_stream.download(filename=file_path) # Download the video to the temporary file
 
-    # Load the downloaded file into memory to be served by Streamlit's download button
-    with open(file_path, "rb") as fin:
-        mp4_bytes = fin.read()
-    os.remove(file_path) # Delete the temporary file
+        if not os.path.exists(file_path):
+            st.error(f"Temporary file {file_path} was not created after download attempt.")
+            return None, None, None
 
-    file_name = yt.title + ".mp4" # Construct the filename
-    return mp4_bytes, file_name, "video/mp4" # Return file bytes, name, and MIME type
+        temp_file_actual_size = os.path.getsize(file_path)
+        st.info(f"Temporary file actual size on disk: {temp_file_actual_size} bytes.")
+
+        # Load the downloaded file into memory to be served by Streamlit's download button
+        with open(file_path, "rb") as fin:
+            mp4_bytes = fin.read()
+        st.info(f"Bytes read into memory: {len(mp4_bytes)} bytes.")
+
+        if total_size > 0 and temp_file_actual_size != total_size:
+            st.warning(
+                f"Filesize mismatch: Pytubefix reported {total_size}, "
+                f"but temporary file on disk is {temp_file_actual_size} bytes."
+            )
+        if len(mp4_bytes) != temp_file_actual_size:
+            st.error(
+                f"CRITICAL READ ERROR: Temporary file on disk was {temp_file_actual_size} bytes, "
+                f"but only {len(mp4_bytes)} bytes were read into memory. Data loss occurred."
+            )
+            return None, None, None # Data is corrupted/incomplete
+
+    except Exception as e:
+        st.error(f"An error occurred during video download or file handling: {e}")
+        return None, None, None
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path) # Delete the temporary file
+        yt.register_on_progress_callback(None) # Clear the progress callback
+
+    if mp4_bytes:
+        file_name = yt.title + ".mp4" # Construct the filename
+        return mp4_bytes, file_name, "video/mp4" # Return file bytes, name, and MIME type
+    return None, None, None
 
 def download_audio_stream(yt, progress_bar):
     """
@@ -109,7 +147,8 @@ def download_audio_stream(yt, progress_bar):
         """
         nonlocal bytes_streamed
         bytes_streamed = total_size - bytes_remaining
-        progress = bytes_streamed / total_size
+        # Ensure total_size is not zero to prevent DivisionByZeroError
+        progress = (bytes_streamed / total_size) if total_size > 0 else 0
         progress_bar.progress(min(progress, 1.0))
 
     yt.register_on_progress_callback(on_progress) # Register the progress callback
@@ -138,7 +177,8 @@ def download_audio_stream(yt, progress_bar):
         if os.path.exists(audio_path):
             os.remove(audio_path)
         if os.path.exists(mp3_path):
-            os.remove(mp3_path)
+            os.remove(mp3_path) # Ensure mp3_path is also cleaned up on error
+        yt.register_on_progress_callback(None) # Clear callback on error too
         return None, None, None
 
 def download_caption_text(yt):
